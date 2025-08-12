@@ -4,7 +4,6 @@ Module for scraping news articles from various sources.
 
 import requests
 from bs4 import BeautifulSoup
-import feedparser
 import logging
 import pandas as pd
 from datetime import datetime, timedelta, date
