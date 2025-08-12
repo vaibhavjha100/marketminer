@@ -12,7 +12,7 @@ def date_to_excel_serial(dt):
     Returns:
         int: Excel serial date number.
     '''
-    base = datetime(1899, 12, 30)  # Excel's base date
+    base = date(1899, 12, 31)  # Excel's base date
     serial = (dt - base).days
     if dt >= date(1900, 3, 1):
         serial += 1
