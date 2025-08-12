@@ -19,7 +19,6 @@ HEADERS = {
                   " Chrome/120.0.0.0 Safari/537.36"
 }
 
-VALID_SECTIONS = ["company", "economy", "markets", "industry"]
 
 def scrape_economic_times(start_date, end_date):
     """
@@ -52,7 +51,7 @@ def scrape_economic_times(start_date, end_date):
 
         soup = BeautifulSoup(r.content, "html.parser")
         count = 0
-        for article in soup.select("a[href*='/industry/'], a[href*='/markets/'], a[href*='/wealth/'], a[href*='/small-biz/'], a[href*='/tech/']"):
+        for article in soup.select("a[href*='/industry/'], a[href*='/markets/'], a[href*='/tech/']"):
             count += 1
             headline = article.text.strip()
             link = article['href']
