@@ -20,7 +20,7 @@ HEADERS = {
 }
 
 
-def scrape_economic_times(start_date, end_date):
+def scrape_economic_times(start_date: str | datetime | date, end_date: str | datetime | date) -> pd.DataFrame:
     """
     Scrape news articles from Economic Times within a date range.
 
@@ -34,6 +34,8 @@ def scrape_economic_times(start_date, end_date):
     results = []
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+    if start_dt > end_dt:
+        raise ValueError("Start date must be before end date.")
 
     curr_date = start_dt
     while curr_date <= end_dt:
@@ -51,12 +53,14 @@ def scrape_economic_times(start_date, end_date):
 
         soup = BeautifulSoup(r.content, "html.parser")
         count = 0
+        skip = 0
         for article in soup.select("a[href*='/industry/'], a[href*='/markets/'], a[href*='/tech/']"):
             count += 1
             headline = article.text.strip()
             link = article['href']
             if count <4 or 'live' in link or 'articleshow' not in link:
                 # Skip the first 3 articles which contain market data
+                skip += 1
                 continue
             # Access link to get the full article body and more details
             r = requests.get(link, headers=HEADERS)
@@ -72,11 +76,14 @@ def scrape_economic_times(start_date, end_date):
                 "date": curr_date.strftime("%Y-%m-%d"),
                 "body": body
             })
-        logger.info(f"Found {count} articles for {curr_date.date()}.")
+        logger.info(f"Found {count-skip} articles for {curr_date.date()}.")
         curr_date += timedelta(days=1)
 
     # Make the results unique by headline and link
     df = pd.DataFrame(results)
+    # Drop duplicates based on headline and link
+    # Display the count of dropped duplicates
+    logger.info(f"Dropping {df.duplicated(subset=['headline', 'link']).sum()} duplicate articles.")
     df.drop_duplicates(subset=["headline", "link"], inplace=True)
     if df.empty:
         logger.info("No articles found in the specified date range.")
