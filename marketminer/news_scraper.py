@@ -9,6 +9,7 @@ import pandas as pd
 from datetime import datetime, timedelta, date
 from .utils import date_to_excel_serial
 import re
+from urllib.parse import urljoin
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -18,6 +19,7 @@ HEADERS = {
                   " AppleWebKit/537.36 (KHTML, like Gecko)"
                   " Chrome/120.0.0.0 Safari/537.36"
 }
+_BASE = "https://economictimes.indiatimes.com"
 
 
 def scrape_economic_times(start_date: str | datetime | date, end_date: str | datetime | date) -> pd.DataFrame:
@@ -57,7 +59,12 @@ def scrape_economic_times(start_date: str | datetime | date, end_date: str | dat
         for article in soup.select("a[href*='/industry/'], a[href*='/markets/'], a[href*='/tech/']"):
             count += 1
             headline = article.text.strip()
-            link = article['href']
+            link = article.get('href', '')
+            if link.startswith("/"):
+                link = urljoin(_BASE, link)
+            # Remove whitespace and ensure link is valid
+            link = link.strip()
+
             if count <4 or 'live' in link or 'articleshow' not in link:
                 # Skip the first 3 articles which contain market data
                 skip += 1
@@ -67,8 +74,7 @@ def scrape_economic_times(start_date: str | datetime | date, end_date: str | dat
             article_soup = BeautifulSoup(r.content, "html.parser")
             match = re.search(r'/(?:amp_)?articleshow/(\d+)\.cms', link)
             article_id = match.group(1) if match else None
-            body = ' '.join([p.get_text() for p in soup.select('.artText, .Normal')])
-
+            body = ' '.join([p.get_text() for p in article_soup.select('.artText, .Normal')])
             results.append({
                 "article_id": article_id,
                 "headline": headline,
@@ -81,14 +87,10 @@ def scrape_economic_times(start_date: str | datetime | date, end_date: str | dat
 
     # Make the results unique by headline and link
     df = pd.DataFrame(results)
-    # Drop duplicates based on headline and link
-    # Display the count of dropped duplicates
-    logger.info(f"Dropping {df.duplicated(subset=['headline', 'link']).sum()} duplicate articles.")
-    df.drop_duplicates(subset=["headline", "link"], inplace=True)
     if df.empty:
         logger.info("No articles found in the specified date range.")
         return pd.DataFrame(columns=["headline", "link", "category", "date", "body"])
-
+    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d")
     df.set_index("date", inplace=True)
     df.sort_index(inplace=True)
     logger.info(f"Scraped {len(df)} articles from Economic Times.")
