@@ -1,4 +1,3 @@
-from envs.tf.Lib.ctypes import pythonapi
 from setuptools import setup, find_packages
 
 # Read README for long description
