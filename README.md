@@ -12,7 +12,7 @@ It is designed for analysts, traders, and developers who want quick programmatic
 
 ## Installation
 ```bash
-pip install git+https://github.com/vaibhavjha100/marketminer.git
+pip install marketminer
 ```
 
 ## Usage
