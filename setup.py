@@ -1,4 +1,10 @@
 from setuptools import setup, find_packages
+import re
+import pathlib
+
+here = pathlib.Path(__file__).parent
+init_text = (here / "marketminer" / "__init__.py").read_text()
+version = re.search(r"__version__ = '([^']+)'", init_text).group(1)
 
 # Read README for long description
 with open("README.md", "r", encoding="utf-8") as f:
@@ -6,13 +12,13 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="marketminer",
-    version="0.1.0",
+    version=version,
     author="Vaibhav Jha",
     author_email="vaibhavjha100@gmail.com",
     description="A Python library for scraping financial data from various sources.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/vaibhavjha100/marketminer.git",
+    url="https://github.com/vaibhavjha100/marketminer",
     packages=find_packages(),
     install_requires=[
         "requests",
