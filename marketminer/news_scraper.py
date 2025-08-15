@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, date
 from .utils import date_to_excel_serial
 import re
 from urllib.parse import urljoin
+from concurrent.futures import ThreadPoolExecutor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,6 +41,10 @@ def scrape_economic_times(start_date: str | datetime | date, end_date: str | dat
         raise ValueError("Start date must be before end date.")
 
     curr_date = start_dt
+
+    session = requests.Session()
+    session.headers.update(HEADERS)
+
     while curr_date <= end_dt:
         logger.info(f"Scraping archive for {curr_date.date()}...")
         year = int(curr_date.year)
@@ -47,17 +52,20 @@ def scrape_economic_times(start_date: str | datetime | date, end_date: str | dat
         starttime = date_to_excel_serial(curr_date.date())
 
         archive_url = f"https://economictimes.indiatimes.com/archivelist/year-{year},month-{month},starttime-{starttime}.cms"
-        r = requests.get(archive_url, headers=HEADERS)
+        r = session.get(archive_url)
         if r.status_code != 200:
             logger.warning(f"Failed to fetch archive for {curr_date.date()}")
             curr_date += timedelta(days=1)
             continue
 
         soup = BeautifulSoup(r.content, "html.parser")
-        count = 0
-        skip = 0
-        for article in soup.select("a[href*='/industry/'], a[href*='/markets/'], a[href*='/tech/']"):
-            count += 1
+
+        articles = soup.select("a[href*='/industry/'], a[href*='/markets/'], a[href*='/tech/']")
+        # count = 0
+        # skip = 0
+        def process_article(article, curr_date, session):
+            # nonlocal count, skip
+            # count += 1
             headline = article.text.strip()
             link = article.get('href', '')
             if link.startswith("/"):
@@ -65,27 +73,46 @@ def scrape_economic_times(start_date: str | datetime | date, end_date: str | dat
             # Remove whitespace and ensure link is valid
             link = link.strip()
 
-            if count <4 or 'live' in link or 'articleshow' not in link:
-                # Skip the first 3 articles which contain market data
-                skip += 1
-                continue
+            # if count < 4 or 'live' in link or 'articleshow' not in link:
+            #     # Skip the first 3 articles which contain market data
+            #     skip += 1
+            #     return None
+            if 'live' in link or 'articleshow' not in link:
+                # Skip articles that are live updates or not in the articleshow format
+                return None
+
+
             # Access link to get the full article body and more details
-            r = requests.get(link, headers=HEADERS)
+            r = session.get(link)
+            if r.status_code != 200:
+                logger.warning(f"Failed to fetch article {link}")
+                return None
+
             article_soup = BeautifulSoup(r.content, "html.parser")
             match = re.search(r'/(?:amp_)?articleshow/(\d+)\.cms', link)
             article_id = match.group(1) if match else None
             body = ' '.join([p.get_text() for p in article_soup.select('.artText, .Normal')])
-            results.append({
+            return {
                 "article_id": article_id,
                 "headline": headline,
                 "link": link,
                 "date": curr_date.strftime("%Y-%m-%d"),
                 "body": body
-            })
-        logger.info(f"Found {count-skip} articles for {curr_date.date()}.")
+            }
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(process_article, article, curr_date, session) for article in articles]
+            # Drop None results and collect valid ones
+            futures = [future for future in futures if future is not None]
+            for future in futures:
+                result = future.result()
+                if result:
+                    results.append(result)
+
+        logger.info(f"Found {len(futures)} articles for {curr_date.date()}.")
         curr_date += timedelta(days=1)
 
-    # Make the results unique by headline and link
+    logging.info(f"Dropping duplicate articles based on headline and link.")
     df = pd.DataFrame(results)
     if df.empty:
         logger.info("No articles found in the specified date range.")
@@ -94,5 +121,4 @@ def scrape_economic_times(start_date: str | datetime | date, end_date: str | dat
     df.set_index("date", inplace=True)
     df.sort_index(inplace=True)
     logger.info(f"Scraped {len(df)} articles from Economic Times.")
-
     return df
