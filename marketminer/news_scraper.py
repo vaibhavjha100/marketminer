@@ -131,5 +131,5 @@ async def scrape_economic_times_async(start_date, end_date):
     df["date"] = pd.to_datetime(df["date"])
     df.set_index("date", inplace=True)
     df.sort_index(inplace=True)
-    logger.info(f"Scraped {len(df)} articles from Economic Times asynchronously.")
+    logger.info(f"Scraped {len(df)} articles from Economic Times.")
     return df
