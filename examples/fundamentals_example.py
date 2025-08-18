@@ -1,5 +1,4 @@
 from marketminer.fundamentals_scraper import scrape_fundamentals
-import pandas as pd
 
 if __name__ == "__main__":
     # Example ticker for Reliance Industries Limited
@@ -10,13 +9,13 @@ if __name__ == "__main__":
 
     # Display the scraped data
     print("Profit & Loss Data:")
-    print(financial_data[0].head())
+    print(financial_data["profit_loss"].head())
 
     print("\nBalance Sheet Data:")
-    print(financial_data[1].head())
+    print(financial_data["balance_sheet"].head())
 
     print("\nCash Flow Data:")
-    print(financial_data[2].head())
+    print(financial_data["cash_flows"].head())
 
     print("\nRatios Data:")
-    print(financial_data[3].head())
+    print(financial_data["ratios"].head())
