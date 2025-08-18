@@ -23,7 +23,9 @@ setup(
     install_requires=[
         "requests",
         "beautifulsoup4",
-        "pandas"
+        "pandas",
+        "aiohttp",
+        "nest_asyncio"
     ],
     python_requires=">=3.7"
 )

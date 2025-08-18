@@ -1,3 +1,5 @@
 requests
 beautifulsoup4
 pandas
+aiohttp
+nest_asyncio

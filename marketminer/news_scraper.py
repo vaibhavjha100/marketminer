@@ -10,7 +10,9 @@ from datetime import datetime, timedelta, date
 from .utils import date_to_excel_serial
 import re
 from urllib.parse import urljoin
-from concurrent.futures import ThreadPoolExecutor
+import asyncio
+import aiohttp
+import nest_asyncio
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,6 +23,23 @@ HEADERS = {
                   " Chrome/120.0.0.0 Safari/537.36"
 }
 _BASE = "https://economictimes.indiatimes.com"
+
+async def fetch(session, url):
+    """
+    Asynchronous function to fetch a URL using aiohttp.
+
+    Parameters:
+    session (aiohttp.ClientSession): The session to use for the request.
+    url (str): The URL to fetch.
+
+    Returns:
+        str: The response text.
+    """
+    async with session.get(url) as response:
+        if response.status != 200:
+            logger.warning(f"Failed to fetch {url} with status {response.status}")
+            return None
+        return await response.text()
 
 
 def scrape_economic_times(start_date: str | datetime | date, end_date: str | datetime | date) -> pd.DataFrame:
@@ -34,91 +53,83 @@ def scrape_economic_times(start_date: str | datetime | date, end_date: str | dat
     Returns:
         pd.DataFrame: DataFrame containing news articles.
     """
-    results = []
+    try:
+        return asyncio.run(scrape_economic_times_async(start_date, end_date))
+    except Exception as e:
+        # Fix for Jupyter or interactive environments
+        nest_asyncio.apply()
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(scrape_economic_times_async(start_date, end_date))
+
+async def process_article(session, article, curr_date):
+    headline = article.text.strip()
+    link = article.get('href', '')
+    if link.startswith("/"):
+        link = urljoin(_BASE, link)
+    link = link.strip()
+
+    if 'live' in link or 'articleshow' not in link:
+        return None
+
+    html = await fetch(session, link)
+    if not html:
+        return None
+
+    soup = BeautifulSoup(html, "html.parser")
+    match = re.search(r'/(?:amp_)?articleshow/(\d+)\.cms', link)
+    article_id = match.group(1) if match else None
+    body = ' '.join([p.get_text() for p in soup.select('.artText, .Normal')])
+
+    return {
+        "article_id": article_id,
+        "headline": headline,
+        "link": link,
+        "date": curr_date.strftime("%Y-%m-%d"),
+        "body": body
+    }
+
+async def scrape_economic_times_async(start_date, end_date):
+    """
+    Asynchronously scrape news articles from Economic Times within a date range.
+    Parameters:
+    start_date (str): Start date in the format 'YYYY-MM-DD'.
+    end_date (str): End date in the format 'YYYY-MM-DD'.
+    Returns:
+        pd.DataFrame: DataFrame containing news articles.
+    """
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
     if start_dt > end_dt:
         raise ValueError("Start date must be before end date.")
 
-    curr_date = start_dt
+    results = []
+    async with aiohttp.ClientSession(headers=HEADERS) as session:
+        curr_date = start_dt
+        while curr_date <= end_dt:
+            logger.info(f"Scraping archive for {curr_date.date()}...")
+            archive_url = f"{_BASE}/archivelist/year-{curr_date.year},month-{curr_date.month},starttime-{date_to_excel_serial(curr_date.date())}.cms"
+            html = await fetch(session, archive_url)
+            if not html:
+                curr_date += timedelta(days=1)
+                continue
 
-    session = requests.Session()
-    session.headers.update(HEADERS)
+            soup = BeautifulSoup(html, "html.parser")
+            articles = soup.select("a[href*='/industry/'], a[href*='/markets/'], a[href*='/tech/']")
 
-    while curr_date <= end_dt:
-        logger.info(f"Scraping archive for {curr_date.date()}...")
-        year = int(curr_date.year)
-        month = int(curr_date.month)
-        starttime = date_to_excel_serial(curr_date.date())
+            tasks = [process_article(session, article, curr_date) for article in articles]
+            day_results = await asyncio.gather(*tasks)
+            results.extend([r for r in day_results if r])
 
-        archive_url = f"https://economictimes.indiatimes.com/archivelist/year-{year},month-{month},starttime-{starttime}.cms"
-        r = session.get(archive_url)
-        if r.status_code != 200:
-            logger.warning(f"Failed to fetch archive for {curr_date.date()}")
             curr_date += timedelta(days=1)
-            continue
-
-        soup = BeautifulSoup(r.content, "html.parser")
-
-        articles = soup.select("a[href*='/industry/'], a[href*='/markets/'], a[href*='/tech/']")
-        # count = 0
-        # skip = 0
-        def process_article(article, curr_date, session):
-            # nonlocal count, skip
-            # count += 1
-            headline = article.text.strip()
-            link = article.get('href', '')
-            if link.startswith("/"):
-                link = urljoin(_BASE, link)
-            # Remove whitespace and ensure link is valid
-            link = link.strip()
-
-            # if count < 4 or 'live' in link or 'articleshow' not in link:
-            #     # Skip the first 3 articles which contain market data
-            #     skip += 1
-            #     return None
-            if 'live' in link or 'articleshow' not in link:
-                # Skip articles that are live updates or not in the articleshow format
-                return None
-
-
-            # Access link to get the full article body and more details
-            r = session.get(link)
-            if r.status_code != 200:
-                logger.warning(f"Failed to fetch article {link}")
-                return None
-
-            article_soup = BeautifulSoup(r.content, "html.parser")
-            match = re.search(r'/(?:amp_)?articleshow/(\d+)\.cms', link)
-            article_id = match.group(1) if match else None
-            body = ' '.join([p.get_text() for p in article_soup.select('.artText, .Normal')])
-            return {
-                "article_id": article_id,
-                "headline": headline,
-                "link": link,
-                "date": curr_date.strftime("%Y-%m-%d"),
-                "body": body
-            }
-
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(process_article, article, curr_date, session) for article in articles]
-            # Drop None results and collect valid ones
-            futures = [future for future in futures if future is not None]
-            for future in futures:
-                result = future.result()
-                if result:
-                    results.append(result)
-
-        logger.info(f"Found {len(futures)} articles for {curr_date.date()}.")
-        curr_date += timedelta(days=1)
 
     logging.info(f"Dropping duplicate articles based on headline and link.")
+    # Convert results to DataFrame
     df = pd.DataFrame(results)
     if df.empty:
-        logger.info("No articles found in the specified date range.")
         return pd.DataFrame(columns=["headline", "link", "category", "date", "body"])
-    df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d")
+
+    df["date"] = pd.to_datetime(df["date"])
     df.set_index("date", inplace=True)
     df.sort_index(inplace=True)
-    logger.info(f"Scraped {len(df)} articles from Economic Times.")
+    logger.info(f"Scraped {len(df)} articles from Economic Times asynchronously.")
     return df
