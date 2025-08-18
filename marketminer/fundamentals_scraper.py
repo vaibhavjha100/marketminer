@@ -25,7 +25,7 @@ def scrape_fundamentals(ticker):
     Parameters:
     ticker (str): Stock ticker symbol.
     Returns:
-    tuple: A tuple containing:
+    dict: A dictionary containing DataFrames for Profit & Loss, Balance Sheet, Cash Flow, and Ratios.
 
     '''
     # Provide url of screener with option to change ticker
@@ -122,4 +122,9 @@ def scrape_fundamentals(ticker):
     #     cmp = int(price_line[1:].replace(',', '').strip())
 
     logger.info(f"Scraped data for ticker: {ticker} successfully.")
-    return pl, bs, cf, rd
+    return {
+        "profit_loss": pl,
+        "balance_sheet": bs,
+        "cash_flows": cf,
+        "ratios": rd
+    }
