@@ -28,5 +28,13 @@ setup(
         "nest_asyncio",
         "selenium",
     ],
-    python_requires=">=3.7"
+    python_requires=">=3.7",
+    license="MIT",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+        "Topic :: Software Development :: Libraries",
+        "Intended Audience :: Financial and Insurance Industry",
+    ],
 )
