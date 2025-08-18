@@ -5,9 +5,9 @@ MarketMiner: A Python library for scraping financial data from various sources.
 __version__ = '0.4.0'
 
 from .news_scraper import scrape_economic_times
-from .utils import date_to_excel_serial
+from .fundamentals_scraper import scrape_fundamentals
 
 __all__ = [
     'scrape_economic_times',
-    'date_to_excel_serial'
+    'scrape_fundamentals',
 ]
