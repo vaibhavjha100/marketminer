@@ -25,7 +25,8 @@ setup(
         "beautifulsoup4",
         "pandas",
         "aiohttp",
-        "nest_asyncio"
+        "nest_asyncio",
+        "selenium",
     ],
     python_requires=">=3.7"
 )
