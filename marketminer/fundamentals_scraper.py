@@ -12,12 +12,48 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from .utils import clean_data
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 _BASE = "https://www.screener.in/company/"
+
+def clean_data(x):
+    '''
+    Clean the scraped financial data.
+    Parameters:
+        x (pd.DataFrame): The DataFrame containing scraped data.
+    Returns:
+        pd.DataFrame: Cleaned DataFrame with years as rows and values as columns.
+    '''
+    # Transpose data so that year are rows and values are columns
+    x=x.T
+    # 1st row is the new column headers
+    x.columns=x.iloc[0]
+    # Temp list for current index
+    a=list(x.index)
+    # Replace 1st index to 0
+    a[0]=0
+    # Remove all non-digit items from index
+    a = [''.join(filter(str.isdigit, str(item))) for item in a]
+    # Type cast index to int
+    a = [int(item) for item in a]
+    # Assign cleaned index to dataframe
+    x.index = a
+    # Drop the 1st row that became column headers
+    x = x.drop(0)
+    # Replace  , and % in the data
+    x = x.replace({',': '', '%': ''}, regex=True)
+    # Typecast data to numeric
+    x=x.apply(pd.to_numeric)
+    # Remove spaces,+,%,- in column name
+    x.columns = x.columns.str.strip()
+    x.columns = x.columns.str.replace(' ', '')
+    x.columns = x.columns.str.replace('+', '')
+    x.columns = x.columns.str.replace('%', '')
+    x.columns = x.columns.str.replace('-', '')
+    x.columns = x.columns.str.strip()
+    return x
 
 def scrape_fundamentals(ticker):
     '''
