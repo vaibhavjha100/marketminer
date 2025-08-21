@@ -8,7 +8,7 @@ It is designed for analysts, traders, and developers who want quick programmatic
 
 - **News Scraper**: Get historical news articles from various sources.
 - **Company Fundamentals**: Access financial statements and key metrics for public companies.
-- **Utility Functions**: Common helpers for parsing, cleaning, and making requests.
+- **Macroeconomic Data**: Fetch macroeconomic indicators.
 
 ## Installation
 ```bash
@@ -36,15 +36,25 @@ print("Balance Sheet:")
 print(financial_data['balance_sheet'].head())
 ```
 
+### 3. Scraping Macroeconomic Data
+```python
+from marketminer import scrape_macro_india
+macro_data = scrape_macro_india(start_date='2023-01-01', end_date='2023-10-01')
+for time_control, data in macro_data.items():
+    print(f"{time_control} Data:")
+    print(data.head())
+```
+
+
 ## Dependencies
 
 - `requests`: For making HTTP requests.
 - `pandas`: For data manipulation and analysis.
 - `beautifulsoup4`: For parsing HTML content.
 - `selenium`: For web scraping dynamic content.
-- 'openpyxl`: For reading Excel files.'
+- `openpyxl`: For reading Excel files.'
 
-Note: For fundamentals scraping, ensure you have Google Chrome + ChromeDriver installed.
+Note: For fundamentals and macroeconomic scraping, ensure you have Google Chrome + ChromeDriver installed.
 - Download ChromeDriver: https://chromedriver.chromium.org/downloads
 
 ## License
