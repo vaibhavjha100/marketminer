@@ -42,6 +42,7 @@ print(financial_data['balance_sheet'].head())
 - `pandas`: For data manipulation and analysis.
 - `beautifulsoup4`: For parsing HTML content.
 - `selenium`: For web scraping dynamic content.
+- 'openpyxl`: For reading Excel files.'
 
 Note: For fundamentals scraping, ensure you have Google Chrome + ChromeDriver installed.
 - Download ChromeDriver: https://chromedriver.chromium.org/downloads
