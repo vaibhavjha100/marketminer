@@ -27,6 +27,7 @@ setup(
         "aiohttp",
         "nest_asyncio",
         "selenium",
+        "openpyxl",
     ],
     python_requires=">=3.7",
     license="MIT",
